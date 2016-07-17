@@ -1,0 +1,6 @@
+{
+    "name": "Chatty",
+    "scripts": {
+        "start": "node built/index.js"
+    }
+}

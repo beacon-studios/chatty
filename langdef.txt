@@ -1,0 +1,74 @@
+Go-like
+- static duck typing (implicit interface implementation, "implements"-syntax optional)
+- automatic interface subset requirement (I require UserInterface but I only use the login() method)
+
+Ruby-like
+- literals are objects
+- terse syntax & sugar
+- execution within "class" context
+- ruby-style operator overloading
+- setter definition
+
+C#-like
+- generics
+- virtuals
+- method overloading
+
+JS-like
+- amd/require()-style encapsulated modules
+- prototype referencing & metaprogramming
+
+Eiffel
+- Design-by-contract
+
+Custom
+- explicit syntax for dependency injection
+- compile in guard statements (in dev only?) based on types
+- explicit separation of query and executive methods
+- heavy metaprogramming features
+
+interface Address
+    street -> String
+    state -> State
+    country -> Country
+
+class Name: String
+    base str: String
+
+
+class Model
+     injected conn: DatabaseConnection
+
+class User
+    model: Model #base
+    addr: Address #injected
+    name: Name #passed
+
+    async method delete!()
+
+
+## IMPLEMENTATION
+
+this: class User [Model]
+    model: Model #base
+
+    cast -> String
+        return model.cast()
+
+
+### same as
+
+class Name [Model]
+    str: String
+
+    init(...args)
+
+
+const Name = class Name {
+  
+    constructor(...args) {
+        const str = new String(...args);
+        let props = Object.getOwnPropertyNames(str);
+
+    }    
+};

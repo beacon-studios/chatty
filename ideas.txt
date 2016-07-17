@@ -1,0 +1,95 @@
+Script = EOLStatement, {EOLStatement};
+
+EOLStatement = Statement, EOL;
+EOL = NEWLINE | ";";
+WS = {NEWLINE | " " | TAB | Comment};
+Comment = BlockComment | LineComment;
+BlockComment = "/*", {text: ANY}, "*/";
+LineComment = ("#" | "//"), {text: ANY - NEWLINE}, 
+
+Statement = ClassDeclaration | Assignment | Imperative | FuncDeclaration;
+
+ClassName = LETTER, {LETTER | NUMBER | "_"};
+Extends = "extends", WS, ClassName;
+ClassDeclaration = "class", WS, [name: ClassName ], [extends: Extends], WS, BeginBlock, WS, { ClassMemberDeclaration, WS }, EndBlock;
+
+ArgumentList = Argument, WS, {",", WS, Argument};
+
+Block = "{", { Statement }, "}";
+FunctionName = LETTER, {LETTER | NUMBER | "_"};
+ClassMemberDeclaration = ClassMethodDeclaration, [EOL];
+classMethodDeclaration = FunctionName, "(", ArgumentList, ")", Block;
+
+class Extends extends Token {
+
+    constructor(parser) {
+        super(parser);
+        this.base = parser.capture('ClassName');
+    };
+
+};
+
+
+class ClassDeclaration extends Token {
+    
+    constructor(parser) {
+        super(parser);
+        this.name = parser.capture('ClassName');
+        this.extends = parser.capture('Extends');
+        this.members = parser.captureAll('ClassMemberDeclaration');
+    };
+
+};
+
+///
+
+class MyFormatter extends Parser.Formatter {
+
+    Extends(token) {
+        return " extends " + token.base;
+    };
+
+    ClassDeclaration(token) {
+        return "class " + token.name + " " + this.format(token.extends) + "{\n"
+        + token.members.map((member) => this.format(member) + "\n") + "\n};";
+    };
+
+}
+
+class Formatter {
+      
+};
+
+objects: 
+    - lexicon
+    - tokeniser(grammar): source => tokens
+    - parser: tokens => tree
+    - formatter: tree => source
+    - translator: tree(a) => tree(b)
+    - rephraser: tree(a) => tree(a)
+
+let js = new Parser.Language(Parser.grammars.get('ebnf').parse(fs.readFileSync('javascript/syntax.ebnf')), require('javascript/tokens.js'));
+Parser.languages.set('Javascript', js);
+
+Parser.languages.get('Javascript').rephrasers.add(require('javascript/es5.js'));
+Parser.map('Javascript', 'Common', require('javascript/to-common.js'));
+
+let tree = Parser.parse('Javascript', fs.readFileSync('test/test.js'));
+let source = Parser.export(tree, require('javascript/format.js'));
+    // return formatter.walk(tree);
+
+
+let cs = Parser.translate(Parser.rephrase(tree, , 'Coffeescript');
+
+let language = Parser.recognise(fs.readFileSync('ambiguous.txt'));
+    // let tokenisers = Parser.languages.map((l) => { alive: true, tokeniser: t.open(source), language: l.name });
+    // while(tokenisers.length > 1) {
+    //   for(let i = tokenisers.length - 1; i >= 0; i--) {
+    //     try {
+    //       tokenisers[i].tokeniser.step();
+    //     } catch(e) {
+    //       tokenisers.splice(i, 0);
+    //     }
+    //   }
+    // }
+    // return tokenisers.map((t) => t.language);
