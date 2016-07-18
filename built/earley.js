@@ -1,103 +1,108 @@
 "use strict";
-class EarleyTerminal {
-    constructor(value) {
+function isProductionReference(ref) {
+    return typeof ref.name === 'string' && typeof ref.identify === 'function';
+}
+;
+var EarleyTerminal = (function () {
+    function EarleyTerminal(value) {
         this.value = value;
     }
     ;
-    identify() {
-        let val = this.value;
+    EarleyTerminal.prototype.identify = function () {
+        var val = this.value;
         if (typeof val === 'string') {
             return '"' + val + '"';
         }
         else if (val instanceof RegExp) {
             return val.toString();
         }
-    }
+    };
     ;
-    match(input) {
-        let val = this.value;
+    EarleyTerminal.prototype.match = function (input) {
+        var val = this.value;
         if (typeof val === 'string') {
             return input.substr(0, val.length) === val ? val : null;
         }
         else if (val instanceof RegExp) {
-            let match = input.match(val);
+            var match = input.match(val);
             return match && match.index === 0 ? match[0] : null;
         }
-    }
+    };
     ;
-}
+    return EarleyTerminal;
+}());
 ;
-class EarleyRule {
-    constructor(symbols) {
+var EarleyRule = (function () {
+    function EarleyRule(symbols) {
         this.symbols = symbols;
     }
     ;
-}
+    return EarleyRule;
+}());
 ;
-class EarleyProductionLookup {
-    constructor(name) {
-        this.name = name;
-    }
-    ;
-    identify() {
-        return '<' + this.name + '>';
-    }
-    ;
-}
-;
-class EarleyProduction {
-    constructor(name, rules) {
+var EarleyProduction = (function () {
+    function EarleyProduction(name, rules) {
         this.name = name;
         this.rules = [];
         if (Array.isArray(rules))
-            this.add(...rules);
+            this.add.apply(this, rules);
     }
     ;
-    add(...rules) {
-        for (let i = 0; i < rules.length; i++) {
-            let rule = rules[i];
+    EarleyProduction.prototype.add = function () {
+        var rules = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            rules[_i - 0] = arguments[_i];
+        }
+        for (var i = 0; i < rules.length; i++) {
+            var rule = rules[i];
             rule.production = this;
             this.rules.push(rule);
         }
-    }
+    };
     ;
-    instantiate(start = 0, current = 0) {
-        let items = this.rules.map((r) => new EarleyItem(r, start, current));
+    EarleyProduction.prototype.instantiate = function (start, current) {
+        if (start === void 0) { start = 0; }
+        if (current === void 0) { current = 0; }
+        var items = this.rules.map(function (r) { return new EarleyItem(r, start, current); });
         return items;
-    }
+    };
     ;
-}
+    return EarleyProduction;
+}());
 ;
-class EarleyItem {
-    constructor(rule, start = 0, current = 0, length = 0) {
+var EarleyItem = (function () {
+    function EarleyItem(rule, start, current, length) {
+        if (start === void 0) { start = 0; }
+        if (current === void 0) { current = 0; }
+        if (length === void 0) { length = 0; }
         this.rule = rule;
         this.start = start || 0;
         this.current = current || 0;
         this.length = length || 0;
     }
     ;
-    next() {
+    EarleyItem.prototype.next = function () {
         if (this.current >= this.rule.symbols.length) {
             return null;
         }
         return this.rule.symbols[this.current];
-    }
+    };
     ;
-    advance(new_length) {
+    EarleyItem.prototype.advance = function (new_length) {
         if (this.completed())
             throw new Error('cannot advance an item at the end of its rule');
         return new EarleyItem(this.rule, this.start, this.current + 1, new_length);
-    }
+    };
     ;
-    completed() {
+    EarleyItem.prototype.completed = function () {
         return this.current >= this.rule.symbols.length;
-    }
+    };
     ;
-    debug(debug_mode) {
+    EarleyItem.prototype.debug = function (debug_mode) {
         debug_mode = debug_mode || 'start';
-        let msg = this.rule.production.name + ' ->';
-        for (let k = 0; k < this.rule.symbols.length; k++) {
-            let symbol = this.rule.symbols[k];
+        var msg = this.rule.production.name + ' ->';
+        for (var k = 0; k < this.rule.symbols.length; k++) {
+            var symbol = this.rule.symbols[k];
             if (k == this.current)
                 msg += ' ●';
             msg += ' ' + symbol.identify();
@@ -107,215 +112,242 @@ class EarleyItem {
         }
         msg += ' (' + this[debug_mode] + ')';
         return msg;
-    }
+    };
     ;
-}
+    return EarleyItem;
+}());
 ;
-class EarleyStateSet {
-    constructor() {
+var EarleyStateSet = (function () {
+    function EarleyStateSet() {
         this.items = [];
     }
     ;
-    unshift(...items) {
-        this.items.unshift(...items);
-    }
+    EarleyStateSet.prototype.unshift = function () {
+        var items = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            items[_i - 0] = arguments[_i];
+        }
+        (_a = this.items).unshift.apply(_a, items);
+        var _a;
+    };
     ;
-    push(...items) {
-        this.items.push(...items);
-    }
+    EarleyStateSet.prototype.push = function () {
+        var items = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            items[_i - 0] = arguments[_i];
+        }
+        (_a = this.items).push.apply(_a, items);
+        var _a;
+    };
     ;
-}
+    return EarleyStateSet;
+}());
 ;
-class EarleyPushdown {
-    constructor(debug_mode) {
+var EarleyPushdown = (function () {
+    function EarleyPushdown(debug_mode) {
         this.debug_mode = debug_mode || null;
         this.states = [];
     }
-    get length() { return this.states.length; }
+    Object.defineProperty(EarleyPushdown.prototype, "length", {
+        get: function () { return this.states.length; },
+        enumerable: true,
+        configurable: true
+    });
     ;
-    get(index) {
+    EarleyPushdown.prototype.get = function (index) {
         if (index < this.states.length) {
             return this.states[index];
         }
         else {
             while (index >= this.states.length) {
-                let set = new EarleyStateSet;
+                var set = new EarleyStateSet;
                 this.states.push(set);
             }
             return this.states[index];
         }
-    }
+    };
     ;
-    debug(state_index, item_index) {
-        for (let i = 0; i < this.length; i++) {
-            let state = this.get(i);
+    EarleyPushdown.prototype.debug = function (state_index, item_index) {
+        for (var i = 0; i < this.length; i++) {
+            var state = this.get(i);
             console.log((state_index === i ? '> ' : '') + 'STATE ' + i + ' {');
-            for (let j = 0; j < state.items.length; j++) {
-                let item = state.items[j];
-                let msg = '    ' + (state_index === i && item_index === j ? '> ' : '') + item.debug(this.debug_mode);
+            for (var j = 0; j < state.items.length; j++) {
+                var item = state.items[j];
+                var msg = '    ' + (state_index === i && item_index === j ? '> ' : '') + item.debug(this.debug_mode);
                 console.log(msg);
             }
             console.log('}');
         }
-    }
+    };
     ;
-}
+    return EarleyPushdown;
+}());
 ;
-class SyntaxNode {
-    constructor(type, tokens) {
-        this._type = type;
-        this._tokens = tokens;
-    }
-    ;
-    type() {
-        return this._type;
-    }
-    tokens() {
-        return this._tokens;
-    }
-    ;
-}
-exports.SyntaxNode = SyntaxNode;
-class EarleyProcessor {
-    constructor(parser, source, states) {
-        this.parser = parser;
+var EarleyProcessor = (function () {
+    function EarleyProcessor(source, states) {
         this.source = source;
         this.states = states;
     }
     ;
-    completed() {
-        return this.states.length == (this.source.length + 1) && this.states.get(this.source.length).items.some((i) => i.completed() && i.start === 0);
-    }
+    EarleyProcessor.prototype.completed = function () {
+        return this.states.length == (this.source.length + 1) && this.states.get(this.source.length).items.some(function (i) { return i.completed() && i.start === 0; });
+    };
     ;
-    tree() {
-        let indexed = new EarleyPushdown('length');
-        for (let i = 0; i < this.states.length; i++) {
-            let state = this.states.get(i);
-            for (let j = 0; j < state.items.length; j++) {
-                let item = state.items[j];
+    EarleyProcessor.prototype.tree = function (walker) {
+        var indexed = new EarleyPushdown('length');
+        for (var i = this.states.length - 1; i >= 0; i--) {
+            var state = this.states.get(i);
+            for (var j = state.items.length - 1; j >= 0; j--) {
+                var item = state.items[j];
                 if (item.completed()) {
-                    indexed.get(item.start).unshift(item);
+                    indexed.get(item.start).push(item);
                 }
             }
         }
         indexed.debug();
-        return null;
-    }
+        var self = this;
+        return (function CreateNode(state_index, item_index, source_index) {
+            var state = indexed.get(state_index);
+            for (; item_index < state.items.length; item_index++) {
+                var item = state.items[item_index];
+                console.log('working with ' + state_index + ':' + item_index + ' - ' + item.debug('length'));
+                var tokens = [];
+                if (!item)
+                    return null;
+                for (var j = 0; j < item.rule.symbols.length; j++) {
+                    var symbol = item.rule.symbols[j];
+                    var source_offset = source_index + tokens.reduce(function (val, token) { return val + token.length; }, 0);
+                    if (symbol instanceof EarleyTerminal) {
+                        console.log('looking for ' + symbol.identify() + ' at source:' + source_offset);
+                        var token = symbol.match(self.source.substr(source_offset));
+                        if (token) {
+                            console.log('found token "' + token + '" (' + token.length + ') at ' + source_offset);
+                            tokens.push(token);
+                            state_index += 1;
+                        }
+                        else {
+                            return null;
+                        }
+                    }
+                    else if (isProductionReference(symbol)) {
+                        var new_index = (source_offset == item.start ? item_index + 1 : 0);
+                        var state_1 = indexed.get(state_index);
+                        console.log('looking for ' + symbol.identify() + ' at ' + source_offset + ':' + new_index);
+                        var token = CreateNode(source_offset, new_index, source_offset);
+                        if (token) {
+                            tokens.push(token);
+                        }
+                        else {
+                            return null;
+                        }
+                    }
+                }
+                console.log('sending back a ' + item.debug('length'));
+                return walker(item.rule.production.name, tokens);
+            }
+        })(0, 0, 0);
+    };
     ;
-}
+    return EarleyProcessor;
+}());
 exports.EarleyProcessor = EarleyProcessor;
 ;
-class EarleyParser {
-    constructor() {
+var EarleyParser = (function () {
+    function EarleyParser() {
         this.productions = {};
-        this.nodes = {};
     }
     ;
-    production(name) {
-        return new EarleyProductionLookup(name);
-    }
-    ;
-    addRule(name, symbols) {
-        let prod = this.productions[name];
+    EarleyParser.prototype.addRule = function (name, symbols) {
+        var prod = this.productions[name];
         if (!prod) {
             prod = new EarleyProduction(name);
             this.productions[name] = prod;
         }
-        let imported_symbols = [];
-        for (let i = 0; i < symbols.length; i++) {
-            let symbol = symbols[i];
+        var imported_symbols = [];
+        for (var i = 0; i < symbols.length; i++) {
+            var symbol = symbols[i];
             if (typeof symbol === 'string') {
                 imported_symbols.push(new EarleyTerminal(symbol));
             }
             else if (symbol instanceof RegExp) {
                 imported_symbols.push(new EarleyTerminal(symbol));
             }
-            else if (symbol instanceof EarleyProductionLookup) {
+            else if (isProductionReference(symbol)) {
                 imported_symbols.push(symbol);
             }
         }
         prod.add(new EarleyRule(imported_symbols));
-    }
+    };
     ;
-    node(name) {
-        if (name in this.nodes) {
-            return this.nodes[name];
-        }
-        else {
-            return SyntaxNode;
-        }
-    }
-    ;
-    addNode(name, nodeClass) {
-        this.nodes[name] = nodeClass;
-    }
-    ;
-    parse(firstProduction, source) {
-        let states = new EarleyPushdown();
+    EarleyParser.prototype.parse = function (firstProduction, source) {
+        var states = new EarleyPushdown();
         if (firstProduction in this.productions) {
-            states.get(0).push(...this.productions[firstProduction].instantiate(0, 0));
+            (_a = states.get(0)).push.apply(_a, this.productions[firstProduction].instantiate(0, 0));
         }
         else {
             throw new Error('could not find production "' + firstProduction + '"');
         }
-        let state_index = 0;
+        var state_index = 0;
         while (state_index <= source.length) {
             if (state_index >= states.length)
                 break;
-            let state = states.get(state_index);
-            let item_index = 0;
-            while (item_index < state.items.length) {
-                let item = state.items[item_index];
-                let next = item.next();
+            var state = states.get(state_index);
+            var item_index = 0;
+            var _loop_1 = function() {
+                var item = state.items[item_index];
+                var next = item.next();
                 // completion
                 if (next === null) {
-                    console.log('completed rule ' + item.rule.production.name);
-                    do {
-                        let completion_state = states.get(item.start);
-                        let addition_state = states.get(state_index);
-                        for (let i = 0; i < completion_state.items.length; i++) {
-                            let completion_item = completion_state.items[i];
-                            let completion_next = completion_item.next();
-                            if (completion_next instanceof EarleyProductionLookup && completion_next.name === item.rule.production.name) {
-                                console.log('advanced ' + completion_item.rule.production.name);
-                                addition_state.push(completion_item.advance(state_index));
-                            }
+                    //console.log('completed rule ' + item.rule.production.name);
+                    var completion_state = states.get(item.start);
+                    var addition_state = states.get(state_index);
+                    for (var i = 0; i < completion_state.items.length; i++) {
+                        var completion_item = completion_state.items[i];
+                        var completion_next = completion_item.next();
+                        if (isProductionReference(completion_next) && completion_next.name === item.rule.production.name) {
+                            //console.log('advanced ' + completion_item.rule.production.name);
+                            addition_state.push(completion_item.advance(state_index));
                         }
-                        break;
-                    } while (1);
+                    }
                 }
                 else if (next instanceof EarleyTerminal) {
-                    console.log('scanning for ' + next.identify());
-                    let match = next.match(source.substr(state_index));
+                    //console.log('scanning for ' + next.identify());
+                    var match = next.match(source.substr(state_index));
                     if (match) {
                         states.get(state_index + 1).push(item.advance(state_index + 1));
                     }
                 }
-                else if (next instanceof EarleyProductionLookup) {
-                    console.log('predicting for ' + next.identify());
-                    let production = this.productions[next.name];
-                    if (!production)
+                else if (isProductionReference(next)) {
+                    //console.log('predicting for ' + next.identify());
+                    var production_1 = this_1.productions[next.name];
+                    if (!production_1)
                         throw new Error('could not find production "' + next.name + '"');
                     // no duplication of productions
-                    if (!state.items.some((item) => item.rule.production == production && item.start == state_index)) {
-                        let instances = production.instantiate(state_index, 0);
-                        instances.map((i) => console.log('adding to ' + state_index + ': ' + i.debug()));
-                        state.push(...instances);
+                    if (!state.items.some(function (item) { return item.rule.production == production_1 && item.start == state_index; })) {
+                        var instances = production_1.instantiate(state_index, 0);
+                        //instances.map((i) => console.log('adding to ' + state_index + ': ' + i.debug()));
+                        state.push.apply(state, instances);
                     }
                 }
                 else {
                     throw new Error('invalid symbol found in rule');
                 }
-                states.debug(state_index, item_index);
-                console.log('------------------------------');
+                //states.debug(state_index, item_index);
+                //console.log('------------------------------');
                 item_index++;
+            };
+            var this_1 = this;
+            while (item_index < state.items.length) {
+                _loop_1();
             }
             state_index++;
         }
-        return new EarleyProcessor(this, source, states);
-    }
+        return new EarleyProcessor(source, states);
+        var _a;
+    };
     ;
-}
+    return EarleyParser;
+}());
 exports.EarleyParser = EarleyParser;
 ;
 //# sourceMappingURL=earley.js.map
