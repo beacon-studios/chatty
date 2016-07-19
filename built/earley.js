@@ -193,7 +193,7 @@ var EarleyProcessor = (function () {
         return this.states.length == (this.source.length + 1) && this.states.get(this.source.length).items.some(function (i) { return i.completed() && i.start === 0; });
     };
     ;
-    EarleyProcessor.prototype.tree = function (walker) {
+    EarleyProcessor.prototype.tree = function (walker, terminal) {
         var indexed = new EarleyPushdown('length');
         for (var i = this.states.length - 1; i >= 0; i--) {
             var state = this.states.get(i);
@@ -206,46 +206,57 @@ var EarleyProcessor = (function () {
         }
         indexed.debug();
         var self = this;
-        return (function CreateNode(state_index, item_index, source_index) {
+        var ret = (function CreateNode(state_index, item_index, depth) {
             var state = indexed.get(state_index);
             for (; item_index < state.items.length; item_index++) {
                 var item = state.items[item_index];
-                console.log('working with ' + state_index + ':' + item_index + ' - ' + item.debug('length'));
                 var tokens = [];
+                var p = function (msg, depth) { console.log(Array(depth + 1).join('  ') + '[' + state_index + ':' + item_index + '] ' + msg); };
+                p('running ' + item.debug('length'), depth);
                 if (!item)
                     return null;
                 for (var j = 0; j < item.rule.symbols.length; j++) {
                     var symbol = item.rule.symbols[j];
-                    var source_offset = source_index + tokens.reduce(function (val, token) { return val + token.length; }, 0);
                     if (symbol instanceof EarleyTerminal) {
-                        console.log('looking for ' + symbol.identify() + ' at source:' + source_offset);
-                        var token = symbol.match(self.source.substr(source_offset));
+                        var token = symbol.match(self.source.substr(state_index));
                         if (token) {
-                            console.log('found token "' + token + '" (' + token.length + ') at ' + source_offset);
-                            tokens.push(token);
-                            state_index += 1;
+                            p('found token "' + token + '" for ' + item.debug('length') + ' at ' + state_index, depth + 1);
+                            state_index += token.length;
+                            tokens.push(terminal(token));
+                            continue;
                         }
                         else {
+                            p('!NO token "' + symbol.identify() + '" for ' + item.debug('length') + ' at ' + state_index, depth + 1);
                             return null;
                         }
                     }
                     else if (isProductionReference(symbol)) {
-                        var new_index = (source_offset == item.start ? item_index + 1 : 0);
+                        var new_index = (state_index == item.start ? item_index + 1 : 0);
                         var state_1 = indexed.get(state_index);
-                        console.log('looking for ' + symbol.identify() + ' at ' + source_offset + ':' + new_index);
-                        var token = CreateNode(source_offset, new_index, source_offset);
-                        if (token) {
-                            tokens.push(token);
+                        var ret_1 = CreateNode(state_index, new_index, depth + 1);
+                        if (ret_1) {
+                            //p('found ' + symbol.identify() + ' for ' + item.debug('length') + ' at ' + state_index, depth);
+                            tokens.push(ret_1.token);
+                            state_index = ret_1.length;
+                            continue;
                         }
                         else {
+                            p('!NO ' + symbol.identify() + ' for ' + item.debug('length') + ' at ' + state_index, depth);
                             return null;
                         }
                     }
                 }
-                console.log('sending back a ' + item.debug('length'));
-                return walker(item.rule.production.name, tokens);
+                //p('sending back a ' + item.debug('length'), depth);
+                return { token: walker(item.rule.production.name, tokens), length: state_index };
             }
+            return null;
         })(0, 0, 0);
+        if (ret) {
+            return ret.token;
+        }
+        else {
+            return null;
+        }
     };
     ;
     return EarleyProcessor;

@@ -1,4 +1,4 @@
-import {INode, IProductionReference} from './interfaces';
+import {IProductionReference} from './interfaces';
 
 function isProductionReference(ref: IProductionReference|any): ref is IProductionReference {
     return typeof ref.name === 'string' && typeof ref.identify === 'function';
@@ -189,7 +189,7 @@ export class EarleyProcessor {
 		return this.states.length == (this.source.length + 1) && this.states.get(this.source.length).items.some((i) => i.completed() && i.start === 0);
 	};
 
-	tree<T extends INode>(walker: (type: string, tokens: Array<T|string>) => T): T {
+	tree<T>(walker: (type: string, tokens: Array<T>) => T, terminal: (value: string) => T): T {
 		let indexed: EarleyPushdown = new EarleyPushdown('length');
 		for(let i = this.states.length - 1; i >= 0; i--) {
 			let state = this.states.get(i);
@@ -201,58 +201,72 @@ export class EarleyProcessor {
 				}
 			}
 		}
+
         indexed.debug();
 
         let self = this;
 
-        return (function CreateNode(state_index: number, item_index: number, source_index: number): T {
+        let ret = (function CreateNode(state_index: number, item_index: number, depth: number): {token: T, length: number} {
             let state = indexed.get(state_index);
 
             for(; item_index < state.items.length; item_index++) {
                 let item = state.items[item_index];
-                console.log('working with ' + state_index + ':' + item_index + ' - ' + item.debug('length'));
-                let tokens: Array<T|string> = [];
+                let tokens: Array<T> = [];
+
+                let p = function(msg, depth) { console.log(Array(depth + 1).join('  ') + '[' + state_index + ':' + item_index + '] ' + msg); };
+                p('running ' + item.debug('length'), depth);
 
                 if(!item) return null;
 
                 for(let j = 0; j < item.rule.symbols.length; j++) {
                     let symbol = item.rule.symbols[j];
-                    let source_offset = source_index + tokens.reduce((val, token) => val + token.length, 0);
 
                     if(symbol instanceof EarleyTerminal) {
-                        console.log('looking for ' + symbol.identify() + ' at source:' + source_offset);
-                        let token: string = symbol.match(self.source.substr(source_offset));
+                        let token: string = symbol.match(self.source.substr(state_index));
 
                         if(token) {
-                            console.log('found token "' + token + '" (' + token.length + ') at ' + source_offset);
-                            tokens.push(token);
-                            state_index += 1;
+                            p('found token "' + token + '" for ' + item.debug('length') + ' at ' + state_index, depth + 1);
+                            state_index += token.length;
+                            tokens.push(terminal(token));
+                            continue;
 
                         } else {
+                            p('!NO token "' + symbol.identify() + '" for ' + item.debug('length') +' at ' + state_index, depth + 1);
                             return null;
                         }
 
                     // hack to repalce instanceof IProductionReference
                     } else if(isProductionReference(symbol)) {
-                        let new_index = (source_offset == item.start ? item_index + 1 : 0);
+                        let new_index = (state_index == item.start ? item_index + 1 : 0);
                         let state = indexed.get(state_index);
-                        console.log('looking for ' + symbol.identify() + ' at ' + source_offset + ':' + new_index);
-                        let token: T = CreateNode(source_offset, new_index, source_offset);
+                        let ret = CreateNode(state_index, new_index, depth + 1);
 
-                        if(token) {
-                            tokens.push(token);
+                        if(ret) {
+                            //p('found ' + symbol.identify() + ' for ' + item.debug('length') + ' at ' + state_index, depth);
+                            tokens.push(ret.token);
+                            state_index = ret.length;
+                            continue;
 
                         } else {
+                            p('!NO ' + symbol.identify() + ' for ' + item.debug('length') + ' at ' + state_index, depth);
                             return null;
                         }
                     }
-
                 }
 
-                console.log('sending back a ' + item.debug('length'));
-                return walker(item.rule.production.name, tokens);
+                //p('sending back a ' + item.debug('length'), depth);
+                return {token: walker(item.rule.production.name, tokens), length: state_index};
             }
+
+            return null;
         })(0, 0, 0);
+
+        if(ret) {
+            return ret.token;
+
+        } else {
+            return null;
+        }
 	};
 };
 
@@ -336,7 +350,7 @@ export class EarleyParser {
 				// prediction
 				} else if(isProductionReference(next)) {
 					//console.log('predicting for ' + next.identify());
-					let production = this.productions[next.name];
+					let production: EarleyProduction = this.productions[next.name];
 					if(!production) throw new Error('could not find production "' + next.name + '"');
 
 					// no duplication of productions

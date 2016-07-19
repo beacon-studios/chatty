@@ -4,6 +4,26 @@ var NodeSet = (function () {
     function NodeSet() {
         this._nodes = {};
     }
+    Object.defineProperty(NodeSet.prototype, "default", {
+        get: function () { return this._default; },
+        set: function (method) { this._default = method; },
+        enumerable: true,
+        configurable: true
+    });
+    ;
+    ;
+    Object.defineProperty(NodeSet.prototype, "terminal", {
+        get: function () { return this._terminal; },
+        set: function (method) { this._terminal = method; },
+        enumerable: true,
+        configurable: true
+    });
+    ;
+    ;
+    ;
+    NodeSet.prototype.get = function (type) {
+        return (type in this._nodes) ? this._nodes[type] : null;
+    };
     ;
     NodeSet.prototype.attach = function (type, node) {
         this._nodes[type] = node;
@@ -12,7 +32,6 @@ var NodeSet = (function () {
     NodeSet.prototype.lookup = function () {
         return this._nodes;
     };
-    ;
     return NodeSet;
 }());
 exports.NodeSet = NodeSet;
@@ -136,28 +155,13 @@ var FeatureSet = (function () {
 }());
 exports.FeatureSet = FeatureSet;
 ;
-var Node = (function () {
-    function Node(type, children) {
-        this._type = type;
-        this._children = children;
-    }
-    Object.defineProperty(Node.prototype, "length", {
-        get: function () { return this._children.reduce(function (val, c) { return val + c.length; }, 0); },
-        enumerable: true,
-        configurable: true
-    });
-    ;
-    ;
-    return Node;
-}());
-exports.Node = Node;
-;
 var Language = (function () {
     function Language(name, productions, nodes, features) {
         this._name = name;
         this._productions = productions;
         this._nodes = nodes;
         this._features = features;
+        this.node = this._nodes.attach.bind(this._nodes);
     }
     ;
     Language.prototype.ref = function (name) {
@@ -178,10 +182,14 @@ var Language = (function () {
         return this._nodes;
     };
     ;
-    Language.prototype.parse = function (source, entrypoint, defaultClass) {
+    Language.prototype.parse = function (source, entrypoint) {
         var parser = new earley_1.EarleyParser();
         var productions = this._productions.all();
-        var nodes = this._nodes.lookup();
+        var nodes = this._nodes;
+        var def = nodes.default || function (type, children) {
+            var types = children.map(function (child) { return 'name' in child.constructor ? child.constructor['name'] : '<anonymous>'; });
+            throw new Error('could not create node of type "' + type + '" with ' + children.length + ' children of types: ' + types);
+        };
         for (var _i = 0, _a = this._productions.all(); _i < _a.length; _i++) {
             var production = _a[_i];
             for (var _b = 0, _c = production.rules; _b < _c.length; _b++) {
@@ -190,15 +198,16 @@ var Language = (function () {
             }
         }
         var walk = function (type, children) {
-            if (type in nodes) {
-                return nodes[type](children) || new defaultClass(type, children);
+            var factory = nodes.get(type);
+            if (factory) {
+                return factory(children) || def(type, children);
             }
             else {
-                return new defaultClass(type, children);
+                return def(type, children);
             }
         };
         var processor = parser.parse(entrypoint, source);
-        return processor.tree(walk);
+        return processor.tree(walk, nodes.terminal);
     };
     ;
     return Language;

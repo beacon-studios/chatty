@@ -1,15 +1,22 @@
-export interface INode {
-    length: number;
+export interface IDefaultNodeMethod<T> {
+    (type: string, children: Array<T>): T;
 };
 
-export interface INodeMethod<T extends INode> {
-    (children: Array<T|string>): T;
+export interface INodeMethod<T> {
+    (children: Array<T>): T;
 };
 
-export interface INodeSet<T extends INode> {
+export interface ITerminalMethod<T> {
+    (value: string): T;
+};
+
+export interface INodeSet<T> {
+    get(type: string): INodeMethod<T>;
     attach(type: string, node: INodeMethod<T>);
     lookup(): {[type: string]: INodeMethod<T>};
-    terminal(method: INodeMethod<T>);
+
+    terminal: ITerminalMethod<T>;
+    default: IDefaultNodeMethod<T>;
 };
 
 export interface IProductionReference {
@@ -28,13 +35,13 @@ export interface IProductionSet {
     all(): IProduction[];
 };
 
-export interface IFeature<T extends INode> {
+export interface IFeature<T> {
     name: string;
     productions(): IProductionSet;
     nodes(): INodeSet<T>;
 };
 
-export interface IFeatureSet<T extends INode> {
+export interface IFeatureSet<T> {
     push(IFeature);
     all(): IFeature<T>[];
 };

@@ -1,12 +1,22 @@
 import {EarleyParser} from './earley';
-import {INode, INodeMethod, INodeSet, IProductionReference, IProduction, IProductionSet, IFeature, IFeatureSet} from './interfaces';
+import {INodeMethod, IDefaultNodeMethod, ITerminalMethod, INodeSet, IProductionReference, IProduction, IProductionSet, IFeature, IFeatureSet} from './interfaces';
 
-export class NodeSet<T extends INode> {
-    private _terminal: INodeMethod<T>;
+export class NodeSet<T> {
+    private _terminal: ITerminalMethod<T>;
+    private _default: IDefaultNodeMethod<T>;
     private _nodes: {[type: string]: INodeMethod<T>};
+
+    get default(): IDefaultNodeMethod<T> { return this._default; };
+    set default(method: IDefaultNodeMethod<T>) { this._default = method; };
+    get terminal(): ITerminalMethod<T> { return this._terminal; };
+    set terminal(method: ITerminalMethod<T>) { this._terminal = method; };
 
     constructor() {
         this._nodes = {};
+    };
+
+    get(type: string): INodeMethod<T> {
+        return (type in this._nodes) ? this._nodes[type] : null;
     };
 
     attach(type: string, node: INodeMethod<T>) {
@@ -15,11 +25,7 @@ export class NodeSet<T extends INode> {
 
     lookup(): {[type: string]: INodeMethod<T>} {
         return this._nodes;
-    };
-
-    terminal(method: INodeMethod<T>) {
-        this._terminal = method;
-    };
+    }
 };
 
 export class ProductionReference implements IProductionReference {
@@ -77,7 +83,7 @@ export class ProductionSet implements IProductionSet {
     };
 };
 
-export class Feature<T extends INode> implements IFeature<T> {
+export class Feature<T> implements IFeature<T> {
     private _name: string;
     private _productions: IProductionSet;
     private _nodes: INodeSet<T>;
@@ -99,7 +105,7 @@ export class Feature<T extends INode> implements IFeature<T> {
     };
 };
 
-export class FeatureSet<T extends INode> implements IFeatureSet<T> {
+export class FeatureSet<T> implements IFeatureSet<T> {
     private _features: {[name: string]: IFeature<T>};
 
     constructor() {
@@ -114,18 +120,7 @@ export class FeatureSet<T extends INode> implements IFeatureSet<T> {
     };
 };
 
-export class Node implements INode {
-    private _type: string;
-    private _children: Array<INode|string>;
-    get length(): number { return this._children.reduce((val, c) => val + c.length, 0); };
-
-    constructor(type: string, children: Array<INode|string>) {
-        this._type = type;
-        this._children = children;
-    };
-};
-
-export class Language<T extends INode> {
+export class Language<T> {
     private _name: string;
     private _productions: IProductionSet;
     private _nodes: INodeSet<T>;
@@ -159,7 +154,11 @@ export class Language<T extends INode> {
     parse(source: string, entrypoint: string) {
         let parser = new EarleyParser();
         let productions = this._productions.all();
-        let nodes = this._nodes.lookup();
+        let nodes = this._nodes;
+        let def = nodes.default || function(type:string, children: Array<T>): T {
+            let types = children.map((child) => 'name' in child.constructor ? child.constructor['name'] : '<anonymous>');
+            throw new Error('could not create node of type "' + type + '" with ' + children.length + ' children of types: ' + types);
+        };
 
         for(let production of this._productions.all()) {
             for(let rule of production.rules) {
@@ -167,17 +166,18 @@ export class Language<T extends INode> {
             }
         }
 
-        let walk = function(type: string, children: Array<T|string>): T {
-            if(type in nodes) {
-                return nodes[type](children) || new defaultClass(type, children);
+        let walk = function(type: string, children: Array<T>): T {
+            let factory = nodes.get(type);
+            if(factory) {
+                return factory(children) ||  def(type, children);
 
             } else {
-                return new defaultClass(type, children);
+                return def(type, children);
             }
         }
 
         let processor = parser.parse(entrypoint, source);
-        return processor.tree<T>(walk);
+        return processor.tree<T>(walk, nodes.terminal);
     };
 
 };
