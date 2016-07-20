@@ -1,23 +1,29 @@
 import {Language, Feature, ProductionReference, Production, FeatureSet, ProductionSet, NodeSet} from './languages';
+import {INode} from './interfaces';
+import {Formatter} from './patterns';
+export {INode} from './interfaces';
 
 export class Parser {
-    private _languages: {[name: string]: Language<any>};
+    private _languages: {[name: string]: Language<INode>};
 
     constructor() {
         this._languages = {};
     };
 
-    language<T>(name: string): Language<T> {
+    language<T extends INode>(name: string): Language<T> {
         let language = new Language<T>(name, new ProductionSet(), new NodeSet<T>(), new FeatureSet<T>());
         this._languages[name] = language;
         return language;
     };
-};
+    
+    formatter<T extends INode>(language: string): Formatter<T> {
+        if(language in this._languages) {
+            return new Formatter<T>(<Language<T>> this._languages[language]);
 
-export interface INode {
-    type: string;
-    children: INode[];
-    toString(): string;
+        } else {
+            throw new Error('language "' + language + '" not found');
+        }
+    };
 };
 
 export class TerminalNode implements INode {
@@ -46,7 +52,7 @@ export class Node implements INode {
     };
 
     toString(): string {
-        return this._children.map((child) => child.toString()).join();
+        return this._children.map((child) => child.toString()).join('');
     };
 
 };

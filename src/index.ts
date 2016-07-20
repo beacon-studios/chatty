@@ -1,4 +1,8 @@
 import {Parser, INode, TerminalNode, Node} from './api';
+import {Formatter} from './patterns';
+
+declare var require: any;
+let colors = require('colors/safe');
 
 let parser = new Parser();
 let maths = parser.language<IMathsNode>('maths');
@@ -39,6 +43,9 @@ class OperatorNode extends Node implements IMathsNode {
     private _first: IMathsNode;
     private _operator: MathsTerminalNode;
     private _second: IMathsNode;
+    get first() { return this._first; };
+    get operator() { return this._operator; };
+    get second() { return this._second; };
 
     constructor(first: IMathsNode, operator: MathsTerminalNode, second: IMathsNode) {
         super('Operator', [first, operator, second]);
@@ -58,15 +65,20 @@ class OperatorNode extends Node implements IMathsNode {
 };
 
 class FactorNode extends Node implements IMathsNode {
+    private _bracketed: boolean;
     private _subject: IMathsNode;
+    get bracketed() { return this._bracketed; };
+    get subject() { return this._subject; };
 
     constructor(children: Array<IMathsNode>) {
         super('Factor', children);
 
         if(children.length === 3) {
+            this._bracketed = true;
             this._subject = children[1];
 
         } else {
+            this._bracketed = false;
             this._subject = children[0];
         }
     };
@@ -114,9 +126,21 @@ maths.nodes().attach('Number', (children: IMathsNode[]): IMathsNode => {
     return new MathsTerminalNode(children.map((child) => child.toString()).join());
 });
 
-let processor = maths.parse('1+2*3-4', 'Sum');
-console.log(processor);
-console.log(processor.eval());
+let tree = maths.parse('1+(2*3)-4', 'Sum').tree();
+console.log(tree);
+console.log(tree.toString() + ' = ' + tree.eval());
+
+let formatter = parser.formatter<IMathsNode>('maths');
+formatter.on('Operator', (instance: OperatorNode, format: (instance: IMathsNode) => string): string => {
+    return format(instance.first) + ' ' + colors.yellow(instance.operator) + ' ' + format(instance.second);
+});
+formatter.on('Factor', (instance: FactorNode, format: (instance: IMathsNode) => string): string => {
+    return instance.bracketed ? (colors.cyan('(') + format(instance.subject) + colors.cyan(')')) : colors.white(format(instance.subject));
+});
+
+let time = (new Date).getTime();
+console.log(formatter.format(tree));
+console.log('took ' + ((new Date).getTime() - time));
 
 /*
 STATE 0 {

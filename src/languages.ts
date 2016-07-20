@@ -1,7 +1,7 @@
-import {EarleyParser} from './earley';
-import {INodeMethod, IDefaultNodeMethod, ITerminalMethod, INodeSet, IProductionReference, IProduction, IProductionSet, IFeature, IFeatureSet} from './interfaces';
+import {EarleyParser, EarleyProcessor} from './earley';
+import {INode, INodeMethod, IDefaultNodeMethod, ITerminalMethod, INodeSet, IProductionReference, IProduction, IProductionSet, IFeature, IFeatureSet} from './interfaces';
 
-export class NodeSet<T> {
+export class NodeSet<T extends INode> implements INodeSet<T> {
     private _terminal: ITerminalMethod<T>;
     private _default: IDefaultNodeMethod<T>;
     private _nodes: {[type: string]: INodeMethod<T>};
@@ -19,8 +19,15 @@ export class NodeSet<T> {
         return (type in this._nodes) ? this._nodes[type] : null;
     };
 
-    attach(type: string, node: INodeMethod<T>) {
-        this._nodes[type] = node;
+    attach(types: string|Array<string>, node: INodeMethod<T>) {
+        if(typeof types === 'string') {
+            this._nodes[types] = node;
+
+        } else {
+            for(let type of types) {
+                this._nodes[type] = node;
+            }
+        }
     };
 
     lookup(): {[type: string]: INodeMethod<T>} {
@@ -83,7 +90,7 @@ export class ProductionSet implements IProductionSet {
     };
 };
 
-export class Feature<T> implements IFeature<T> {
+export class Feature<T extends INode> implements IFeature<T> {
     private _name: string;
     private _productions: IProductionSet;
     private _nodes: INodeSet<T>;
@@ -105,7 +112,7 @@ export class Feature<T> implements IFeature<T> {
     };
 };
 
-export class FeatureSet<T> implements IFeatureSet<T> {
+export class FeatureSet<T extends INode> implements IFeatureSet<T> {
     private _features: {[name: string]: IFeature<T>};
 
     constructor() {
@@ -120,7 +127,42 @@ export class FeatureSet<T> implements IFeatureSet<T> {
     };
 };
 
-export class Language<T> {
+export class Parse<T extends INode> {
+    private _parser: Language<T>;
+    private _processor: EarleyProcessor;
+
+    constructor(parser: Language<T>, processor: EarleyProcessor) {
+        this._parser = parser;
+        this._processor = processor;
+    };
+
+    completed(): boolean {
+        return this._processor.completed();
+    };
+
+    tree(): T {
+        let nodes = this._parser.nodes();
+        let def = nodes.default || function(type:string, children: Array<T>): T {
+            let types = children.map((child) => 'name' in child.constructor ? child.constructor['name'] : '<anonymous>');
+            throw new Error('could not create node of type "' + type + '" with ' + children.length + ' children of types: ' + types);
+        };
+
+        let walk = function(type: string, children: Array<T>): T {
+            let factory = nodes.get(type);
+            if(factory) {
+                return factory(children) ||  def(type, children);
+
+            } else {
+                return def(type, children);
+            }
+        }
+
+        return this._processor.tree<T>(walk, nodes.terminal);
+    };
+
+};
+
+export class Language<T extends INode> {
     private _name: string;
     private _productions: IProductionSet;
     private _nodes: INodeSet<T>;
@@ -153,31 +195,14 @@ export class Language<T> {
 
     parse(source: string, entrypoint: string) {
         let parser = new EarleyParser();
-        let productions = this._productions.all();
-        let nodes = this._nodes;
-        let def = nodes.default || function(type:string, children: Array<T>): T {
-            let types = children.map((child) => 'name' in child.constructor ? child.constructor['name'] : '<anonymous>');
-            throw new Error('could not create node of type "' + type + '" with ' + children.length + ' children of types: ' + types);
-        };
-
         for(let production of this._productions.all()) {
             for(let rule of production.rules) {
                 parser.addRule(production.name, rule);
             }
         }
 
-        let walk = function(type: string, children: Array<T>): T {
-            let factory = nodes.get(type);
-            if(factory) {
-                return factory(children) ||  def(type, children);
-
-            } else {
-                return def(type, children);
-            }
-        }
-
         let processor = parser.parse(entrypoint, source);
-        return processor.tree<T>(walk, nodes.terminal);
+        return new Parse<T>(this, processor);
     };
 
 };

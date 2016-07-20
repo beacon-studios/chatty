@@ -1,7 +1,7 @@
-import {IProductionReference} from './interfaces';
+import {INode, IProductionReference, IDefaultNodeMethod} from './interfaces';
 
 function isProductionReference(ref: IProductionReference|any): ref is IProductionReference {
-    return typeof ref.name === 'string' && typeof ref.identify === 'function';
+    return typeof ref === 'object' && typeof ref.name === 'string' && typeof ref.identify === 'function';
 }; 
 
 class EarleyTerminal {
@@ -186,10 +186,18 @@ export class EarleyProcessor {
 	};
 
 	completed() {
-		return this.states.length == (this.source.length + 1) && this.states.get(this.source.length).items.some((i) => i.completed() && i.start === 0);
+		return this.solutions().length > 0;
 	};
 
-	tree<T>(walker: (type: string, tokens: Array<T>) => T, terminal: (value: string) => T): T {
+    solutions() {
+        return this.states.get(this.source.length).items.filter((i) => i.completed() && i.start === 0);
+    };
+
+    ambiguous() {
+        return this.solutions().length > 1;
+    };
+
+	tree<T extends INode>(walker: IDefaultNodeMethod<T>, terminal: (value: string) => T): T {
 		let indexed: EarleyPushdown = new EarleyPushdown('length');
 		for(let i = this.states.length - 1; i >= 0; i--) {
 			let state = this.states.get(i);
@@ -201,8 +209,6 @@ export class EarleyProcessor {
 				}
 			}
 		}
-
-        indexed.debug();
 
         let self = this;
 
