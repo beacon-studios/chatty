@@ -49,6 +49,10 @@ export class ProductionReference implements IProductionReference {
     };
 };
 
+export class Rule implements IRule {
+
+};
+
 export class Production implements IProduction {
     private _name: string;
     private _rules: Array<Array<ProductionReference|RegExp|string>>;

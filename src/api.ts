@@ -4,19 +4,24 @@ import {Formatter} from './patterns';
 export {INode} from './interfaces';
 
 export class Parser {
-    private _languages: {[name: string]: Language<INode>};
+    private _languages: {[name: string]: Language<Node>};
 
     constructor() {
         this._languages = {};
     };
 
-    language<T extends INode>(name: string): Language<T> {
-        let language = new Language<T>(name, new ProductionSet(), new NodeSet<T>(), new FeatureSet<T>());
-        this._languages[name] = language;
-        return language;
+    language(name: string): Language<Node> {
+        if(name in this._languages) {
+            return this._languages[name];
+
+        } else {
+            let language = new Language<Node>(name, new ProductionSet(), new NodeSet<Node>(), new FeatureSet<Node>());
+            this._languages[name] = language;
+            return language;
+        }
     };
     
-    formatter<T extends INode>(language: string): Formatter<T> {
+    formatter(language: string): Formatter<Node> {
         if(language in this._languages) {
             return new Formatter<T>(<Language<T>> this._languages[language]);
 
@@ -46,7 +51,7 @@ export class Node implements INode {
     get type() { return this._type; };
     get children() { return this._children; };
 
-    constructor(type: string, children: INode[]) {
+    constructor(language: Language, type: string, children: INode[]) {
         this._type = type;
         this._children = children;
     };

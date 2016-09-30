@@ -5,7 +5,7 @@ declare var require: any;
 let colors = require('colors/safe');
 
 let parser = new Parser();
-let maths = parser.language<IMathsNode>('maths');
+let maths = parser.language('maths');
 maths.production('Sum')
     .push([maths.ref('Sum'), /^[+-]/, maths.ref('Product')])
     .push([maths.ref('Product')]);

@@ -2,7 +2,7 @@ import {INode, IProductionReference, IDefaultNodeMethod} from './interfaces';
 
 function isProductionReference(ref: IProductionReference|any): ref is IProductionReference {
     return typeof ref === 'object' && typeof ref.name === 'string' && typeof ref.identify === 'function';
-}; 
+};
 
 class EarleyTerminal {
 	public value: string|RegExp;
@@ -101,7 +101,7 @@ class EarleyItem {
 	public debug(debug_mode?: string): string {
 		debug_mode = debug_mode || 'start';
 		let msg = this.rule.production.name + ' ->';
-		
+
 		for(let k = 0; k < this.rule.symbols.length; k++) {
 			let symbol = this.rule.symbols[k];
 			if(k == this.current) msg += ' ●';
@@ -141,7 +141,7 @@ class EarleyPushdown {
 	get length(): number { return this.states.length }
 
 	constructor(debug_mode?: string) {
-		this.debug_mode = debug_mode || null; 
+		this.debug_mode = debug_mode || null;
 		this.states = [];
 	};
 
@@ -343,7 +343,7 @@ export class EarleyParser {
 							addition_state.push(completion_item.advance(state_index));
 						}
 					}
-					
+
 				// scan
 				} else if(next instanceof EarleyTerminal) {
 					//console.log('scanning for ' + next.identify());

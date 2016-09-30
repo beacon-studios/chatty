@@ -1,14 +1,12 @@
-define(["require", "exports"], function (require, exports) {
-    "use strict";
-    ;
-    ;
-    ;
-    ;
-    ;
-    ;
-    ;
-    ;
-    ;
-    ;
-});
+"use strict";
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
 //# sourceMappingURL=interfaces.js.map
