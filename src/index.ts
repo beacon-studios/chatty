@@ -1,4 +1,5 @@
-import {Parser, INode, TerminalNode, Node} from './api';
+import {Parser, TerminalNode, Node} from './api';
+import {INode, IVisitor} from './interfaces';
 import {Formatter} from './patterns';
 
 declare var require: any;
@@ -22,115 +23,41 @@ maths.production('Number')
     .push([/^[0-9]/, maths.ref('Number')])
     .push([/^[0-9]/]);
 
+/*
+maths.nodes().attach('Sum', (children: INode[]) => {
+  if(children.length === 3) {
+    return [children[0], children[1]];
 
-interface IMathsNode extends INode {
-    eval(): number;
-};
-
-class MathsTerminalNode extends TerminalNode implements IMathsNode {
-    eval(): number {
-        let val = this.toString();
-        if(val.match(/^[0-9]+$/)) {
-            return parseInt(val, 10);
-
-        } else {
-            throw new Error('terminal "' + val + '" cannot be evaluated');
-        }
-    };
-};
-
-class OperatorNode extends Node implements IMathsNode {
-    private _first: IMathsNode;
-    private _operator: MathsTerminalNode;
-    private _second: IMathsNode;
-    get first() { return this._first; };
-    get operator() { return this._operator; };
-    get second() { return this._second; };
-
-    constructor(first: IMathsNode, operator: MathsTerminalNode, second: IMathsNode) {
-        super('Operator', [first, operator, second]);
-        this._first = first;
-        this._operator = operator;
-        this._second = second;
-    };
-
-    eval(): number {
-        switch(this._operator.toString()) {
-            case '+': return this._first.eval() + this._second.eval();
-            case '-': return this._first.eval() - this._second.eval();
-            case '*': return this._first.eval() * this._second.eval();
-            case '/': return this._first.eval() / this._second.eval();
-        }
-    };
-};
-
-class FactorNode extends Node implements IMathsNode {
-    private _bracketed: boolean;
-    private _subject: IMathsNode;
-    get bracketed() { return this._bracketed; };
-    get subject() { return this._subject; };
-
-    constructor(children: Array<IMathsNode>) {
-        super('Factor', children);
-
-        if(children.length === 3) {
-            this._bracketed = true;
-            this._subject = children[1];
-
-        } else {
-            this._bracketed = false;
-            this._subject = children[0];
-        }
-    };
-
-    eval(): number {
-        return this._subject.eval();
-    };
-
-};
-maths.nodes().terminal = (value: string): IMathsNode => {
-    return new MathsTerminalNode(value);
-};
-
-maths.nodes().attach('Sum', (children: IMathsNode[]): IMathsNode => {
-    if(children.length === 3) {
-        let operator = children[1];
-
-        if(operator instanceof MathsTerminalNode) {
-            return new OperatorNode(children[0], operator, children[2]);
-        }
-
-    } else if(children.length === 1) {
-        return new FactorNode(children);
-    }
+  } else if(children.length === 1) {
+    return children;
+  }
 });
 
-maths.nodes().attach('Product', (children: IMathsNode[]): IMathsNode => {
-    if(children.length === 3) {
-        let operator = children[1];
+maths.nodes().attach('Product', (children: INode[]) => {
+  if(children.length === 3) {
+    return [children[0], children[2]];
 
-        if(operator instanceof MathsTerminalNode) {
-            return new OperatorNode(children[0], operator, children[2]);
-        }
-
-    } else if(children.length === 1) {
-        return new FactorNode(children);
-    }
+  } else {
+    return children;
+  }
 });
 
-maths.nodes().attach('Factor', (children: IMathsNode[]): IMathsNode => {
-    return new FactorNode(children);
-});
+maths.nodes().attach('Factor', (children: INode[]) => {
+  if(children.length === 3) {
+    return [children[1]];
 
-maths.nodes().attach('Number', (children: IMathsNode[]): IMathsNode => {
-    return new MathsTerminalNode(children.map((child) => child.toString()).join());
+  } else {
+    return children;
+  }
 });
+*/
+
 
 let tree = maths.parse('1+(2*3)-4', 'Sum').tree();
 console.log(tree);
-console.log(tree.toString() + ' = ' + tree.eval());
+//console.log(tree.toString() + ' = ' + tree.eval());
 
-let formatter = parser.formatter<IMathsNode>('maths');
+/*let formatter = parser.formatter<IMathsNode>('maths');
 formatter.on('Operator', (instance: OperatorNode, format: (instance: IMathsNode) => string): string => {
     return format(instance.first) + ' ' + colors.yellow(instance.operator) + ' ' + format(instance.second);
 });
@@ -141,7 +68,7 @@ formatter.on('Factor', (instance: FactorNode, format: (instance: IMathsNode) => 
 let time = (new Date).getTime();
 console.log(formatter.format(tree));
 console.log('took ' + ((new Date).getTime() - time));
-
+*/
 /*
 STATE 0 {
     Sum -> <Sum> /^[+-]/ <Product> ● (7)
@@ -181,7 +108,7 @@ STATE 6 {
                     [1] Product -> <Factor> ● (1)
                         [1] Factor -> <Number> ● (1)
                             [1] Number -> /^[0-9]/ ● (1)
-                            
+
                 [+] +
                 [2*3] Product -> <Product> /^[*\/]/ <Factor> ● (5)
                     [2] Product -> <Factor> ● (3)

@@ -1,53 +1,65 @@
+export interface IVisitor<T> {
+  visit(node: INode, children: T[]): T;
+};
+
 export interface INode {
-    type: string;
-    complete: boolean;
-    children: INode[];
-    toString(): string;
-};
-export interface IDefaultNodeMethod<T extends INode> {
-    (type: string|Array<string>, children: Array<T>): T;
+  literal: boolean;
+  type: string;
+  children: INode[];
+  toString(): string;
 };
 
-export interface INodeMethod<T extends INode> {
-    (children: Array<T>): T;
+export interface IDefaultNodeMethod {
+  (type: string|Array<string>, children: Array<INode>, opts: INodeOptions): INode;
 };
 
-export interface ITerminalMethod<T extends INode> {
-    (value: string): T;
+export interface INodeOptions {
+
 };
 
-export interface INodeSet<T extends INode> {
-    get(type: string): INodeMethod<T>;
-    attach(type: string, node: INodeMethod<T>);
-    lookup(): {[type: string]: INodeMethod<T>};
+export interface INodeMethod {
+  (type: string, children: Array<INode>, opts: INodeOptions): INode;
+};
 
-    terminal: ITerminalMethod<T>;
-    default: IDefaultNodeMethod<T>;
+export interface ITerminalMethod {
+  (value: string, opts: INodeOptions): INode;
+};
+
+export interface INodeFormatterMethod {
+  (instance: INode, format: (instance: INode) => string): string;
+};
+
+export interface INodeSet {
+  get(type: string): INodeMethod;
+  attach(type: string, node: INodeMethod);
 };
 
 export interface IProductionReference {
-    name: string;
-    identify(): string;
+  name: string;
+  identify(): string;
 };
 
+export type RuleSymbol = IProductionReference|RegExp|string;
+
 export interface IProduction {
-    name: string;
-    rules: Array<Array<IProductionReference|RegExp|string>>;
-    push(...rules: Array<Array<IProductionReference|RegExp|string>>): IProduction;
+  name: string;
+  rules: Array<Array<RuleSymbol>>;
+  push(...rules: Array<Array<RuleSymbol>>): IProduction;
 };
 
 export interface IProductionSet {
-    push(IProduction): IProductionSet;
-    all(): IProduction[];
+  push(IProduction): IProductionSet;
+  first(): IProduction;
+  all(): IProduction[];
 };
 
-export interface IFeature<T extends INode> {
-    name: string;
-    productions(): IProductionSet;
-    nodes(): INodeSet<T>;
+export interface IFeature {
+  name: string;
+  productions(): IProductionSet;
+  nodes(): INodeSet;
 };
 
-export interface IFeatureSet<T extends INode> {
-    push(IFeature);
-    all(): IFeature<T>[];
+export interface IFeatureSet {
+  push(IFeature);
+  all(): IFeature[];
 };

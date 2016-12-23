@@ -27,129 +27,128 @@
 </head>
 <body>
     <div contenteditable id="editor"></div>
+    <script src="../../../dist/chatty.js"></script>
     <script>
-        requirejs.config({
-            baseUrl: '../../../built'
-        });
+    let parser = new chatty.Parser();
+    let maths = parser.language('maths');
 
-        requirejs(['api', 'patterns'], function(api, patterns) {
-            let parser = new api.Parser();
-            let maths = parser.language('maths');
+    maths.production('Operation')
+        .push([maths.ref('Sum')])
+        .push([maths.ref('Product')])
+        .push([maths.ref('Factor')]);
 
-            maths.production('Operation')
-                .push([maths.ref('Sum')])
-                .push([maths.ref('Product')])
-                .push([maths.ref('Factor')]);
+    maths.production('Product')
+        .push([maths.ref('Operation'), /^[*\/]/, maths.ref('Operation')]);
 
-            maths.production('Product')
-                .push([maths.ref('Operation'), /^[*\/]/, maths.ref('Operation')]);
+    maths.production('Sum')
+        .push([maths.ref('Operation'), /^[+\-]/, maths.ref('Operation')]);
 
-            maths.production('Sum')
-                .push([maths.ref('Operation'), /^[+-]/, maths.ref('Operation')]);
+    maths.production('Factor')
+        .push(['(', maths.ref('Operation'), ')'])
+        .push([maths.ref('Number')]);
 
-            maths.production('Factor')
-                .push(['(', maths.ref('Operation'), ')'])
-                .push([maths.ref('Number')]);
+    maths.production('Number')
+        .push([/^[0-9]/, maths.ref('Number')])
+        .push([/^[0-9]/]);
 
-            maths.production('Number')
-                .push([/^[0-9]/, maths.ref('Number')])
-                .push([/^[0-9]/]);
+    class MathsTerminalNode extends chatty.TerminalNode {
+        eval() {
+            let val = this.toString();
+            if(val.match(/^[0-9]+$/)) {
+                return parseInt(val, 10);
 
-            class MathsTerminalNode extends api.TerminalNode {
-                eval() {
-                    let val = this.toString();
-                    if(val.match(/^[0-9]+$/)) {
-                        return parseInt(val, 10);
+            } else {
+                throw new Error('terminal "' + val + '" cannot be evaluated');
+            }
+        };
+    };
 
-                    } else {
-                        throw new Error('terminal "' + val + '" cannot be evaluated');
-                    }
-                };
-            };
+    class OperationNode extends chatty.Node {
+        get first() { return this._first; };
+        get operator() { return this._operator; };
+        get second() { return this._second; };
 
-            class OperationNode extends api.Node {
-                get first() { return this._first; };
-                get operator() { return this._operator; };
-                get second() { return this._second; };
+        constructor(type, children, opts) {
+            super(type, children, opts);
+            this._first = children[0];
+            this._operator = children[1];
+            this._second = children[2];
+        };
 
-                constructor(type, children) {
-                    super('type', children);
-                    this._first = children[0];
-                    this._operator = children[1];
-                    this._second = children[2];
-                };
+        eval() {
+            switch(this._operator.toString()) {
+                case '+': return this._first.eval() + this._second.eval();
+                case '-': return this._first.eval() - this._second.eval();
+                case '*': return this._first.eval() * this._second.eval();
+                case '/': return this._first.eval() / this._second.eval();
+            }
+        };
+    };
 
-                eval() {
-                    switch(this._operator.toString()) {
-                        case '+': return this._first.eval() + this._second.eval();
-                        case '-': return this._first.eval() - this._second.eval();
-                        case '*': return this._first.eval() * this._second.eval();
-                        case '/': return this._first.eval() / this._second.eval();
-                    }
-                };
-            };
+    class FactorNode extends chatty.Node {
+        get bracketed() { return this._bracketed; };
+        get subject() { return this._subject; };
 
-            class FactorNode extends api.Node {
-                get bracketed() { return this._bracketed; };
-                get subject() { return this._subject; };
+        constructor(type, children, opts) {
+            super(type, children, opts);
 
-                constructor(type, children) {
-                    super(type, children);
+            if(children.length === 3) {
+                this._bracketed = true;
+                this._subject = children[1];
 
-                    if(children.length === 3) {
-                        this._bracketed = true;
-                        this._subject = children[1];
+            } else {
+                this._bracketed = false;
+                this._subject = children[0];
+            }
+        };
 
-                    } else {
-                        this._bracketed = false;
-                        this._subject = children[0];
-                    }
-                };
+        eval() {
+            return this._subject.eval();
+        };
 
-                eval() {
-                    return this._subject.eval();
-                };
+    };
+    maths.nodes().terminal = (value) => {
+        return new MathsTerminalNode(value);
+    };
 
-            };
-            maths.nodes().terminal = (value) => {
-                return new MathsTerminalNode(value);
-            };
+    maths.nodes().attach('Operation', (type, children, opts) => {
+        return children[0];
+    });
 
-            maths.nodes().attach('Operation', (children) => {
-                return children[0];
-            });
+    maths.nodes().attach('Sum', (type, children, opts) => new OperationNode('Operation', children, opts));
 
-            maths.nodes().attach('Sum', OperationNode);
+    maths.nodes().attach('Product', (type, children, opts) => new OperationNode('Operation', children, opts));
 
-            maths.nodes().attach('Product', OperationNode);
+    maths.nodes().attach('Factor', (type, children, opts) => new FactorNode(type, children, opts));
 
-            maths.nodes().attach('Factor', FactorNode);
+    maths.nodes().attach('Number', (type, children, opts) => {
+        return new MathsTerminalNode(children.map((child) => child.toString()).join());
+    });
 
-            maths.nodes().attach('Number', (children) => {
-                return new MathsTerminalNode(children.map((child) => child.toString()).join());
-            });
+    let formatter = parser.formatter('maths');
+    formatter.on('Operation', (instance, format) => {
+      console.log(instance);
+        return format(instance.first) + '<span class="op">' + (instance.operator) + '</span>' + format(instance.second);
+    });
+    formatter.on('Factor', (instance, format) => {
+      console.log(instance);
+        return instance.bracketed ? ('<span class="br">(</span>' + format(instance.subject) + '<span class="br">)</span>') : ('<span class="val">' + format(instance.subject) + '</span>');
+    });
 
-            let formatter = parser.formatter('maths');
-            formatter.on('Operator', (instance, format) => {
-                return format(instance.first) + '<span class="op">' + (instance.operator) + '</span>' + format(instance.second);
-            });
-            formatter.on('Factor', (instance, format) => {
-                return instance.bracketed ? ('<span class="br">(</span>' + format(instance.subject) + '<span class="br">)</span>') : ('<span class="val">' + format(instance.subject) + '</span>');
-            });
+    let $div = $('#editor');
+    $div.on('input', function(e) {
+        let parse = maths.parse($div.text(), 'Operation');
 
-            let $div = $('#editor');
-            $div.on('input', function(e) {
-                let parse = maths.parse($div.text(), 'Operation');
-
-                if(parse.completed()) {
-                    let tree = parse.tree();
-                    let html = formatter.format(tree);
-                    console.log(html);
-                    console.log(window.getSelection().getRangeAt(0).startOffset);
-                    $div.html(html);
-                }
-            });
-        });
+        if(parse.completed()) {
+            let tree = parse.tree();
+            console.log('Eval: ' + tree.eval());
+            console.log('tree: ', tree);
+            let html = formatter.format(tree);
+            console.log(html);
+            //console.log(window.getSelection().getRangeAt(0).startOffset);
+            $div.html(html);
+        }
+    });
     </script>
 </body>
 </html>
